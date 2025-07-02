@@ -82,7 +82,7 @@ epochs = mne.EpochsArray(epochs_data, info, events=None, verbose=False)
 X_epochs = epochs.get_data()  # shape: (n_epochs, n_channels, n_times)
 
 # Split into train/test
-X_train, X_test, y_train, y_test = train_test_split(X_epochs, y, test_size=0.3, shuffle=True, random_state=42, stratify=y)
+X_train, X_test, y_train, y_test = train_test_split(X_epochs, y, test_size=0.3, shuffle=True, random_state=40, stratify=y)
 
 print(y_train, len(y_train))
 
@@ -161,4 +161,16 @@ cm_combined = confusion_matrix(y_test, y_pred_combined)
 disp_combined = ConfusionMatrixDisplay(confusion_matrix=cm_combined, display_labels=np.unique(y))
 disp_combined.plot(cmap=plt.cm.Blues)
 plt.title('SVM Confusion Matrix (CSP + Bandpower + Hjorth)')
+plt.show()
+
+# Train SVM on only bandpower and Hjorth features (no CSP)
+svm_no_csp = SVC(kernel='linear', random_state=42)
+svm_no_csp.fit(additional_features, y_train)
+
+# Predict and plot confusion matrix
+y_pred_no_csp = svm_no_csp.predict(additional_features_test)
+cm_no_csp = confusion_matrix(y_test, y_pred_no_csp)
+disp_no_csp = ConfusionMatrixDisplay(confusion_matrix=cm_no_csp, display_labels=np.unique(y))
+disp_no_csp.plot(cmap=plt.cm.Blues)
+plt.title('SVM Confusion Matrix (Bandpower + Hjorth Only)')
 plt.show()

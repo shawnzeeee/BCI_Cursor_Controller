@@ -66,29 +66,40 @@ def process_attention_windows(attention_indices, df, window_size=500, num_window
                 # EMD decomposition
                 emd = EMD()
                 IMFs = emd(signal)
-                # IMF2 and IMF5 (check if they exist)
-                for imf_idx in [1, 4]:
-                    if len(IMFs) > imf_idx:
-                        imf = IMFs[imf_idx]
-                        analytic_signal = hilbert(imf)
-                        amplitude_envelope = np.abs(analytic_signal)
-                        instantaneous_phase = np.unwrap(np.angle(analytic_signal))
-                        instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * 250  # fs=250
-                        # Bandpass filter via frequency mask
-                        alpha_mask = (instantaneous_frequency >= 8) & (instantaneous_frequency <= 13)
-                        beta_mask = (instantaneous_frequency >= 13) & (instantaneous_frequency <= 30)
-                        alpha_power = np.mean(amplitude_envelope[1:][alpha_mask]) if np.any(alpha_mask) else 0
-                        beta_power = np.mean(amplitude_envelope[1:][beta_mask]) if np.any(beta_mask) else 0
-                    else:
-                        alpha_power = 0
-                        beta_power = 0
-                    features.extend([alpha_power, beta_power])
+                # IMF2 alpha power
+                if len(IMFs) > 1:
+                    imf2 = IMFs[1]
+                    analytic_signal2 = hilbert(imf2)
+                    amplitude_envelope2 = np.abs(analytic_signal2)
+                    instantaneous_phase2 = np.unwrap(np.angle(analytic_signal2))
+                    instantaneous_frequency2 = np.diff(instantaneous_phase2) / (2.0 * np.pi) * 250
+                    alpha_mask2 = (instantaneous_frequency2 >= 8) & (instantaneous_frequency2 <= 13)
+                    alpha_power = np.mean(amplitude_envelope2[1:][alpha_mask2]) if np.any(alpha_mask2) else 0
+                else:
+                    alpha_power = 0
+                # IMF5 beta power
+                if len(IMFs) >= 4:
+                    imf5 = IMFs[4]
+                    analytic_signal5 = hilbert(imf5)
+                    amplitude_envelope5 = np.abs(analytic_signal5)
+                    instantaneous_phase5 = np.unwrap(np.angle(analytic_signal5))
+                    instantaneous_frequency5 = np.diff(instantaneous_phase5) / (2.0 * np.pi) * 250
+                    beta_mask5 = (instantaneous_frequency5 >= 13) & (instantaneous_frequency5 <= 30)
+                    beta_power = np.mean(amplitude_envelope5[1:][beta_mask5]) if np.any(beta_mask5) else 0
+                else:
+                    beta_power = 0
+                #mobility, complexity = calculate_hjorth_parameters(signal)
+
+                features.extend([alpha_power, beta_power])
                 # Sample entropy from original signal
-                sampen = sample_entropy(signal)
-                features.append(sampen)
+                #sampen = sample_entropy(signal)
+                #features.append(sampen)
             # Append class label
             features.append(actual_class)
-            features.append(1)
+            if(actual_class == 2 or actual_class == 1):
+                features.append(1)
+            else:
+                features.append(0)
             processed_data.append(features)
     return processed_data
 
@@ -97,10 +108,10 @@ csv_path = os.path.join(os.path.dirname(__file__), 'calibration.csv')
 df = pd.read_csv(csv_path)
 
 attention_indices = df.index[(df['Class'] == 2) | (df['Class'] == 1)].tolist()
-
-print(attention_indices)
+idle_indices = df.index[df['Class'] == 3].tolist()
 
 all_output_data.extend(process_attention_windows(attention_indices, df))
+all_output_data.extend(process_attention_windows(idle_indices, df))
 
 all_output_data = np.array(all_output_data)
 
@@ -108,7 +119,8 @@ all_output_data = np.array(all_output_data)
 # Features: all columns except the last two (actual_class, active_state)
 # Label: actual_class (second last column)
 X = all_output_data[:, :-2]
-y = all_output_data[:, -2]
+y = all_output_data[:, -1]
+print(y)
 
 # Split into train/test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
